@@ -103,24 +103,7 @@ var clearPageSign = function () {
 }
 
 window.URL = window.URL || window.webkitURL || window.mozURL || window.msURL
-var getLoginInfo = function () {
-  return {
-    isLogin: false
-  }
-}
-var showLoginUI = function () {
-  $('#loginmodal').modal('show')
-  $('#username').focus()
-}
-var hiddenLoginUI = function () {
-  $('#loginmodal').modal('hide')
-}
-var showWaitLoginedUI = function () {
-  $('#waitLoginmodal').modal('show')
-}
-var hiddenWaitLoginedUI = function () {
-  $('#waitLoginmodal').modal('hide')
-}
+
 var showChatUI = function () {
   $('#content').css({
     'display': 'block'
@@ -221,12 +204,9 @@ $(document).ready(function () {
       handleError(message)
     }
   })
-  var loginInfo = getLoginInfo()
-  if (loginInfo.isLogin) {
-    showWaitLoginedUI()
-  } else {
-    showLoginUI()
-  }
+
+  // 自动登录
+  login()
 
   $('#addFridentModal').on('hidden.bs.modal', function (e) {
     var ele = document.getElementById('addfridentId')
@@ -249,19 +229,13 @@ $(document).ready(function () {
   $('#confirm-block-div-modal').on('hidden.bs.modal', function (e) {})
   $('#option-room-div-modal').on('hidden.bs.modal', function (e) {})
   $('#notice-block-div').on('hidden.bs.modal', function (e) {})
-  // 在 密码输入框时的回车登录
-  $('#password').keypress(function (e) {
-    var key = e.which
-    if (key === 13) {
-      login()
-    }
-  })
+
   $(function () {
-    $(window).bind('beforeunload', function () {
+    $(window).on('beforeunload', function () {
       curChatRoomId = null
       if (conn) {
         conn.close()
-        return navigator.userAgent.indexOf('Firefox') > 0 ? ' ' : ''
+        return ''
       }
     })
   })
@@ -275,7 +249,6 @@ var handleOpen = function (conn) {
   conn.getRoster({
     success: function (roster) {
       // 页面处理
-      hiddenWaitLoginedUI()
       showChatUI()
       var curroster
       for (var i in roster) {
@@ -352,7 +325,6 @@ var handleClosed = function () {
   }
   clearContactUI('contactlistUL', 'contracgrouplistUL',
     'momogrouplistUL', msgCardDivId)
-  showLoginUI()
   groupQuering = false
   textSending = false
 }
@@ -542,11 +514,9 @@ var handleRoster = function (rosterMsg) {
 var handleError = function (e) {
   curChatRoomId = null
 
-  showLoginUI()
   clearPageSign()
   e && e.upload && $('#fileModal').modal('hide')
   if (curUserId == null) {
-    hiddenWaitLoginedUI()
     alert(e.msg + ',请重新登录')
   } else {
     var msg = e.msg
@@ -592,14 +562,8 @@ Array.prototype.remove = function (val) {
 // 登录系统时的操作方法
 var login = function () {
   setTimeout(function () {
-    var user = $('#username').val()
-    var pass = $('#password').val()
-    if (user == '' || pass == '') {
-      alert('请输入用户名和密码')
-      return
-    }
-    hiddenLoginUI()
-    showWaitLoginedUI()
+    var user = 'o8fvljqtlykcgt6w3vbbr-r9m5js'
+    var pass = '12345678'
     // 根据用户名密码登录系统
     conn.open({
       apiUrl: Easemob.im.config.apiURL,
@@ -613,7 +577,6 @@ var login = function () {
 }
 
 var logout = function () {
-  showLoginUI()
   conn.stopHeartBeat()
   conn.close()
   clearPageSign()
