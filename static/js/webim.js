@@ -4,8 +4,6 @@ var curChatUserId = null
 var curUserId = null
 var $ = window.$
 var Easemob = window.Easemob
-var bothRoster = []
-var toRoster = []
 var chatRoomMark = 'chatroom'
 var msgCardDivId = 'chat01'
 var talkInputId = 'talkInputId'
@@ -13,6 +11,7 @@ var textSending = false
 var groupFlagMark = 'groupchat'
 var curRoomId = null
 var time = 0
+var curContact = {name: '102721', toJid: 'haoyayi#haoyayidocdev_102721@easemob.com', subscription: 'both'}
 
 var encode = function (str) {
   if (!str || str.length === 0) return ''
@@ -148,24 +147,25 @@ var handleOpen = function (conn) {
     success: function (roster) {
       // 页面处理
       showChatUI()
-      var curroster
+      var curroster = null
       for (var i in roster) {
-        var ros = roster[i]
-        // both为双方互为好友，要显示的联系人,from我是对方的单向好友
-        if (ros.subscription === 'both' || ros.subscription === 'from') {
-          bothRoster.push(ros)
-        } else if (ros.subscription === 'to') {
-          // to表明了联系人是我的单向好友
-          toRoster.push(ros)
+        if (roster[i].jid === curContact.toJid) {
+          curroster = roster[i]
         }
       }
-      if (bothRoster.length > 0) {
-        curroster = bothRoster[0]
-        console.log(curroster, 123)
-        if (curroster) {
-          setCurrentContact(curroster.name) // 页面处理将第一个联系人作为当前聊天div
-        }
+      if (!curroster) {
+        conn.addRoster(curContact)
+        conn.getRoster({
+          success: function (newRoster) {
+            for (var j in newRoster) {
+              if (newRoster[j].jid === curContact.toJid) {
+                curroster = newRoster[j]
+              }
+            }
+          }
+        })
       }
+      setCurrentContact(curroster.name) // 页面处理将第一个联系人作为当前聊天div
       conn.setPresence() // 设置用户上线状态，必须调用
     }
   })
