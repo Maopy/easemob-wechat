@@ -20,7 +20,6 @@ var picshim
 var audioshim
 var fileshim
 var friendsSub = {}
-var PAGELIMIT = 8
 
 var alert = window.alert
 var $ = window.$
