@@ -235,7 +235,7 @@ var createContactChatDiv = function (chatUserId) {
 }
 
 // 显示聊天记录的统一处理方法
-var appendMsg = function (who, contact, message, onlyPrompt) {
+var appendMsg = function (who, contact, message, onlyPrompt, isOppositeDirection) {
   console.log('from, to , msg', who, contact, message, onlyPrompt)
 
   var contactDivId = contact
@@ -291,15 +291,20 @@ var appendMsg = function (who, contact, message, onlyPrompt) {
   } else {
     lineDiv.style.textAlign = 'left'
   }
-  var create = false
-  if (msgContentDiv == null) {
-    msgContentDiv = createContactChatDiv(contactDivId)
-    create = true
+  // var create = false
+  // if (msgContentDiv == null) {
+  //   msgContentDiv = createContactChatDiv(contactDivId)
+  //   create = true
+  // }
+  // 往上加还是往下加
+  if (isOppositeDirection) {
+    msgContentDiv.insertBefore(lineDiv, msgContentDiv.firstChild)
+  } else {
+    msgContentDiv.appendChild(lineDiv)
   }
-  msgContentDiv.appendChild(lineDiv)
-  if (create) {
-    document.getElementById(msgCardDivId).appendChild(msgContentDiv)
-  }
+  // if (create) {
+  //   document.getElementById(msgCardDivId).appendChild(msgContentDiv)
+  // }
 
   msgContentDiv.scrollTop = msgContentDiv.scrollHeight
   return lineDiv
