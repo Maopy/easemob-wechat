@@ -1,16 +1,13 @@
 var conn = null
-var curChatRoomId = null
 var curChatUserId = null
 var curUserId = null
 var $ = window.$
 var Easemob = window.Easemob
-var chatRoomMark = 'chatroom'
 var msgCardDivId = 'chat01'
 var talkInputId = 'talkInputId'
 var textSending = false
-var groupFlagMark = 'groupchat'
-var curRoomId = null
 var time = 0
+// 当前聊天对象，name要为id
 var curContact = {name: '102721', toJid: 'haoyayi#haoyayidocdev_102721@easemob.com', subscription: 'both'}
 
 var encode = function (str) {
@@ -50,7 +47,6 @@ $(document).ready(function () {
 
   $(function () {
     $(window).on('beforeunload', function () {
-      curChatRoomId = null
       if (conn) {
         conn.close()
         return ''
@@ -99,15 +95,6 @@ var sendText = function () {
     msg: msg,
     type: 'chat'
   }
-  // 群组消息和个人消息的判断分支
-  if (curChatUserId.indexOf(groupFlagMark) >= 0) {
-    options.type = groupFlagMark
-    options.to = curRoomId
-  } else if (curChatUserId.indexOf(chatRoomMark) >= 0) {
-    options.type = groupFlagMark
-    options.roomType = chatRoomMark
-    options.to = curChatRoomId
-  }
 
   // easemobwebim-sdk发送文本消息的方法 to为发送给谁，meg为文本消息对象
   conn.sendTextMessage(options)
@@ -148,11 +135,13 @@ var handleOpen = function (conn) {
       // 页面处理
       showChatUI()
       var curroster = null
+      // 遍历一下，有curContact的话把其选定为当前聊天对象
       for (var i in roster) {
         if (roster[i].jid === curContact.toJid) {
           curroster = roster[i]
         }
       }
+      // 没有的话加一个再查
       if (!curroster) {
         conn.addRoster(curContact)
         conn.getRoster({
@@ -165,7 +154,7 @@ var handleOpen = function (conn) {
           }
         })
       }
-      setCurrentContact(curroster.name) // 页面处理将第一个联系人作为当前聊天div
+      setCurrentContact(curroster.name) // 设置这个人作为聊天对象
       conn.setPresence() // 设置用户上线状态，必须调用
     }
   })
@@ -185,14 +174,9 @@ var showChatUI = function () {
 // easemobwebim-sdk收到文本消息的回调方法的实现
 var handleTextMessage = function (message) {
   var from = message.from // 消息的发送者
-  var mestype = message.type // 消息发送的类型是群组消息还是个人消息
   var messageContent = message.data // 文本消息体
   // TODO  根据消息体的to值去定位那个群组的聊天记录
-  if (mestype === groupFlagMark || mestype === chatRoomMark) {
-    appendMsg(message.from, mestype + message.to, messageContent)
-  } else {
-    appendMsg(from, from, messageContent)
-  }
+  appendMsg(from, from, messageContent)
 }
 
 // 设置当前显示的聊天窗口div，如果有联系人则默认选中联系人中的第一个联系人
@@ -232,11 +216,8 @@ var createContactChatDiv = function (chatUserId) {
 // 显示聊天记录的统一处理方法
 var appendMsg = function (who, contact, message, onlyPrompt) {
   console.log('from, to , msg', who, contact, message, onlyPrompt)
-  if (!handleChatRoomMessage(contact)) { return }
-  // if ( !contact.indexOf(chatRoomMark) > -1 ) { return; }
 
   var contactDivId = contact
-  // var contactLi = getContactLi(contactDivId)
   // 消息体 {isemotion:true;body:[{type:txt,msg:ssss}{type:emotion,msg:imgdata}]}
   var localMsg = null
   if (typeof message === 'string') {
@@ -290,13 +271,6 @@ var appendMsg = function (who, contact, message, onlyPrompt) {
 
   msgContentDiv.scrollTop = msgContentDiv.scrollHeight
   return lineDiv
-}
-
-var handleChatRoomMessage = function (contact) {
-  if (contact.indexOf(chatRoomMark) > -1) {
-    return contact.slice(chatRoomMark.length) === curChatRoomId
-  }
-  return true
 }
 
 var getLoacalTimeString = function getLoacalTimeString () {
