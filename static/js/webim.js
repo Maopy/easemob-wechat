@@ -8,7 +8,7 @@ var talkInputId = 'talkInputId'
 var textSending = false
 var time = 0
 // 当前聊天对象，name要为id
-var curContact = {name: '102721', toJid: 'haoyayi#haoyayidocdev_102721@easemob.com', subscription: 'both'}
+var curContact = {name: '10272', toJid: 'haoyayi#haoyayidocdev_10272@easemob.com', subscription: 'both'}
 
 var encode = function (str) {
   if (!str || str.length === 0) return ''
@@ -37,6 +37,10 @@ $(document).ready(function () {
     // 收到文本消息时的回调方法
     onTextMessage: function (message) {
       handleTextMessage(message)
+    },
+    // 收到图片消息时的回调方法
+    onPictureMessage: function (message) {
+      handlePictureMessage(message)
     }
   })
 
@@ -54,6 +58,23 @@ $(document).ready(function () {
     })
   })
 })
+
+// easemobwebim-sdk收到图片消息的回调方法的实现
+var handlePictureMessage = function (message) {
+  var filename = message.filename // 文件名称，带文件扩展名
+  var from = message.from // 文件的发送者
+  var contactDivId = from
+
+  var img = document.createElement('img')
+  img.src = message.url
+  appendMsg(from, contactDivId, {
+    data: [ {
+      type: 'pic',
+      filename: filename || '',
+      data: img
+    } ]
+  })
+}
 
 // 定义消息编辑文本域的快捷键，enter和ctrl+enter为发送，alt+enter为换行
 // 控制提交频率
@@ -239,11 +260,22 @@ var appendMsg = function (who, contact, message, onlyPrompt) {
 
   for (var j = 0; j < flg; j++) {
     var msg = messageContent[j]
-    // var type = msg.type
+    var type = msg.type
     var data = msg.data
-    var eles = $('<p>' + data + '</p>')
-    eles.attr('class', 'chat-content-p3')
-    lineDiv.appendChild(eles.get(0))
+    if (type === 'pic') {
+      var fileele = $('<p>' + msg.filename + '</p>')
+      fileele.attr('class', 'chat-content-p3')
+      lineDiv.appendChild(fileele.get(0))
+      data.nodeType && lineDiv.appendChild(data)
+      $(data).on('load', function () {
+        var last = $(msgContentDiv).children().last().get(0)
+        last && last.scrollIntoView && last.scrollIntoView()
+      })
+    } else {
+      var eles = $('<p>' + data + '</p>')
+      eles.attr('class', 'chat-content-p3')
+      lineDiv.appendChild(eles.get(0))
+    }
   }
   if (curChatUserId == null) {
     onlyPrompt || setCurrentContact(contact)
