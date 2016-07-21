@@ -1,18 +1,14 @@
 var conn = null
-var curChatRoomId = null
 var curChatUserId = null
 var curUserId = null
 var $ = window.$
 var Easemob = window.Easemob
-var bothRoster = []
-var toRoster = []
-var chatRoomMark = 'chatroom'
 var msgCardDivId = 'chat01'
 var talkInputId = 'talkInputId'
 var textSending = false
-var groupFlagMark = 'groupchat'
-var curRoomId = null
 var time = 0
+// 当前聊天对象，name要为id
+var curContact = {name: '10272', toJid: 'haoyayi#haoyayidocdev_10272@easemob.com', subscription: 'both'}
 
 var encode = function (str) {
   if (!str || str.length === 0) return ''
@@ -41,6 +37,10 @@ $(document).ready(function () {
     // 收到文本消息时的回调方法
     onTextMessage: function (message) {
       handleTextMessage(message)
+    },
+    // 收到图片消息时的回调方法
+    onPictureMessage: function (message) {
+      handlePictureMessage(message)
     }
   })
 
@@ -51,7 +51,6 @@ $(document).ready(function () {
 
   $(function () {
     $(window).on('beforeunload', function () {
-      curChatRoomId = null
       if (conn) {
         conn.close()
         return ''
@@ -59,6 +58,23 @@ $(document).ready(function () {
     })
   })
 })
+
+// easemobwebim-sdk收到图片消息的回调方法的实现
+var handlePictureMessage = function (message) {
+  var filename = message.filename // 文件名称，带文件扩展名
+  var from = message.from // 文件的发送者
+  var contactDivId = from
+
+  var img = document.createElement('img')
+  img.src = message.url
+  appendMsg(from, contactDivId, {
+    data: [ {
+      type: 'pic',
+      filename: filename || '',
+      data: img
+    } ]
+  })
+}
 
 // 定义消息编辑文本域的快捷键，enter和ctrl+enter为发送，alt+enter为换行
 // 控制提交频率
@@ -100,15 +116,6 @@ var sendText = function () {
     msg: msg,
     type: 'chat'
   }
-  // 群组消息和个人消息的判断分支
-  if (curChatUserId.indexOf(groupFlagMark) >= 0) {
-    options.type = groupFlagMark
-    options.to = curRoomId
-  } else if (curChatUserId.indexOf(chatRoomMark) >= 0) {
-    options.type = groupFlagMark
-    options.roomType = chatRoomMark
-    options.to = curChatRoomId
-  }
 
   // easemobwebim-sdk发送文本消息的方法 to为发送给谁，meg为文本消息对象
   conn.sendTextMessage(options)
@@ -148,24 +155,27 @@ var handleOpen = function (conn) {
     success: function (roster) {
       // 页面处理
       showChatUI()
-      var curroster
+      var curroster = null
+      // 遍历一下，有curContact的话把其选定为当前聊天对象
       for (var i in roster) {
-        var ros = roster[i]
-        // both为双方互为好友，要显示的联系人,from我是对方的单向好友
-        if (ros.subscription === 'both' || ros.subscription === 'from') {
-          bothRoster.push(ros)
-        } else if (ros.subscription === 'to') {
-          // to表明了联系人是我的单向好友
-          toRoster.push(ros)
+        if (roster[i].jid === curContact.toJid) {
+          curroster = roster[i]
         }
       }
-      if (bothRoster.length > 0) {
-        curroster = bothRoster[0]
-        console.log(curroster, 123)
-        if (curroster) {
-          setCurrentContact(curroster.name) // 页面处理将第一个联系人作为当前聊天div
-        }
+      // 没有的话加一个再查
+      if (!curroster) {
+        conn.addRoster(curContact)
+        conn.getRoster({
+          success: function (newRoster) {
+            for (var j in newRoster) {
+              if (newRoster[j].jid === curContact.toJid) {
+                curroster = newRoster[j]
+              }
+            }
+          }
+        })
       }
+      setCurrentContact(curroster.name) // 设置这个人作为聊天对象
       conn.setPresence() // 设置用户上线状态，必须调用
     }
   })
@@ -185,14 +195,9 @@ var showChatUI = function () {
 // easemobwebim-sdk收到文本消息的回调方法的实现
 var handleTextMessage = function (message) {
   var from = message.from // 消息的发送者
-  var mestype = message.type // 消息发送的类型是群组消息还是个人消息
   var messageContent = message.data // 文本消息体
   // TODO  根据消息体的to值去定位那个群组的聊天记录
-  if (mestype === groupFlagMark || mestype === chatRoomMark) {
-    appendMsg(message.from, mestype + message.to, messageContent)
-  } else {
-    appendMsg(from, from, messageContent)
-  }
+  appendMsg(from, from, messageContent)
 }
 
 // 设置当前显示的聊天窗口div，如果有联系人则默认选中联系人中的第一个联系人
@@ -230,13 +235,10 @@ var createContactChatDiv = function (chatUserId) {
 }
 
 // 显示聊天记录的统一处理方法
-var appendMsg = function (who, contact, message, onlyPrompt) {
+var appendMsg = function (who, contact, message, onlyPrompt, isOppositeDirection) {
   console.log('from, to , msg', who, contact, message, onlyPrompt)
-  if (!handleChatRoomMessage(contact)) { return }
-  // if ( !contact.indexOf(chatRoomMark) > -1 ) { return; }
 
   var contactDivId = contact
-  // var contactLi = getContactLi(contactDivId)
   // 消息体 {isemotion:true;body:[{type:txt,msg:ssss}{type:emotion,msg:imgdata}]}
   var localMsg = null
   if (typeof message === 'string') {
@@ -258,11 +260,22 @@ var appendMsg = function (who, contact, message, onlyPrompt) {
 
   for (var j = 0; j < flg; j++) {
     var msg = messageContent[j]
-    // var type = msg.type
+    var type = msg.type
     var data = msg.data
-    var eles = $('<p>' + data + '</p>')
-    eles.attr('class', 'chat-content-p3')
-    lineDiv.appendChild(eles.get(0))
+    if (type === 'pic') {
+      var fileele = $('<p>' + msg.filename + '</p>')
+      fileele.attr('class', 'chat-content-p3')
+      lineDiv.appendChild(fileele.get(0))
+      data.nodeType && lineDiv.appendChild(data)
+      $(data).on('load', function () {
+        var last = $(msgContentDiv).children().last().get(0)
+        last && last.scrollIntoView && last.scrollIntoView()
+      })
+    } else {
+      var eles = $('<p>' + data + '</p>')
+      eles.attr('class', 'chat-content-p3')
+      lineDiv.appendChild(eles.get(0))
+    }
   }
   if (curChatUserId == null) {
     onlyPrompt || setCurrentContact(contact)
@@ -278,25 +291,23 @@ var appendMsg = function (who, contact, message, onlyPrompt) {
   } else {
     lineDiv.style.textAlign = 'left'
   }
-  var create = false
-  if (msgContentDiv == null) {
-    msgContentDiv = createContactChatDiv(contactDivId)
-    create = true
+  // var create = false
+  // if (msgContentDiv == null) {
+  //   msgContentDiv = createContactChatDiv(contactDivId)
+  //   create = true
+  // }
+  // 往上加还是往下加
+  if (isOppositeDirection) {
+    msgContentDiv.insertBefore(lineDiv, msgContentDiv.firstChild)
+  } else {
+    msgContentDiv.appendChild(lineDiv)
   }
-  msgContentDiv.appendChild(lineDiv)
-  if (create) {
-    document.getElementById(msgCardDivId).appendChild(msgContentDiv)
-  }
+  // if (create) {
+  //   document.getElementById(msgCardDivId).appendChild(msgContentDiv)
+  // }
 
   msgContentDiv.scrollTop = msgContentDiv.scrollHeight
   return lineDiv
-}
-
-var handleChatRoomMessage = function (contact) {
-  if (contact.indexOf(chatRoomMark) > -1) {
-    return contact.slice(chatRoomMark.length) === curChatRoomId
-  }
-  return true
 }
 
 var getLoacalTimeString = function getLoacalTimeString () {
